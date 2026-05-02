@@ -101,8 +101,7 @@ col4.metric(
 st.divider()
 
 # ─── Tab Layout ───
-tab1, tab2, tab3 = st.tabs(["🔥 Risk Heatmap", "🔍 Customer Lookup", "🎯 What-If Simulator"])
-
+tab1, tab2, tab3, tab4 = st.tabs(["🔥 Risk Heatmap", "📈 Analytics", "🔍 Customer Lookup", "🎯 What-If Simulator"])
 # ═══════════════════════════════════════
 # TAB 1: Risk Heatmap
 # ═══════════════════════════════════════
@@ -136,11 +135,147 @@ with tab1:
             danger[available_cols].sort_values('predicted_clv', ascending=False).head(20),
             width='stretch'
         )
+# ═══════════════════════════════════════
+# TAB 2: Analytics Dashboard
+# ═══════════════════════════════════════
+with tab2:
+    st.subheader("Customer Analytics Overview")
 
+    # --- Row 1: RFM Distributions ---
+    st.markdown("### RFM-T Distributions")
+    rfm_cols = ['recency', 'frequency', 'monetary_value', 'T']
+    rfm_labels = ['Recency (days)', 'Frequency (orders)', 'Monetary Value ($)', 'Customer Age (days)']
+    colors = ['#2196F3', '#4CAF50', '#FF9800', '#9C27B0']
+
+    col1, col2 = st.columns(2)
+    for i, (col_name, label, color) in enumerate(zip(rfm_cols, rfm_labels, colors)):
+        if col_name in data.columns:
+            clipped = data[col_name].clip(upper=data[col_name].quantile(0.95))
+            fig = px.histogram(
+                clipped, nbins=40,
+                labels={'value': label, 'count': 'Customers'},
+                color_discrete_sequence=[color]
+            )
+            fig.update_layout(
+                title=label, showlegend=False, height=300,
+                margin=dict(t=40, b=20, l=40, r=20)
+            )
+            if i % 2 == 0:
+                col1.plotly_chart(fig, width='stretch')
+            else:
+                col2.plotly_chart(fig, width='stretch')
+
+    st.divider()
+
+    # --- Row 2: CLV Distribution ---
+    st.markdown("### Customer Lifetime Value Distribution")
+    if 'predicted_clv' in data.columns:
+        clv_clipped = data['predicted_clv'].clip(upper=data['predicted_clv'].quantile(0.95))
+        fig_clv = px.histogram(
+            clv_clipped, nbins=50,
+            labels={'value': 'Predicted 12-Month CLV ($)', 'count': 'Customers'},
+            color_discrete_sequence=['#4CAF50']
+        )
+        fig_clv.update_layout(height=350)
+        st.plotly_chart(fig_clv, width='stretch')
+
+        # CLV stats
+        c1, c2, c3, c4 = st.columns(4)
+        c1.metric("Mean CLV", f"${data['predicted_clv'].mean():,.2f}")
+        c2.metric("Median CLV", f"${data['predicted_clv'].median():,.2f}")
+        c3.metric("Top 10% Threshold", f"${data['predicted_clv'].quantile(0.9):,.2f}")
+        c4.metric("Max CLV", f"${data['predicted_clv'].max():,.2f}")
+
+    st.divider()
+
+    # --- Row 3: Churn Analysis ---
+    st.markdown("### Churn Analysis")
+    col_left, col_right = st.columns(2)
+
+    with col_left:
+        if 'churn_probability' in data.columns:
+            fig_churn_dist = px.histogram(
+                data['churn_probability'], nbins=40,
+                labels={'value': 'Churn Probability', 'count': 'Customers'},
+                color_discrete_sequence=['#e53935']
+            )
+            fig_churn_dist.update_layout(title='Churn Probability Distribution', height=350)
+            st.plotly_chart(fig_churn_dist, width='stretch')
+
+    with col_right:
+        if 'value_tier' in data.columns and 'is_churned' in data.columns:
+            churn_by_tier = data.groupby('value_tier')['is_churned'].mean().reset_index()
+            churn_by_tier.columns = ['Value Tier', 'Churn Rate']
+            fig_tier = px.bar(
+                churn_by_tier, x='Value Tier', y='Churn Rate',
+                color_discrete_sequence=['#1E88E5'],
+                text=churn_by_tier['Churn Rate'].apply(lambda x: f"{x:.1%}")
+            )
+            fig_tier.update_layout(title='Churn Rate by Value Tier', height=350)
+            st.plotly_chart(fig_tier, width='stretch')
+
+    st.divider()
+
+    # --- Row 4: Value Tier Breakdown ---
+    st.markdown("### Customer Segments")
+    col1, col2 = st.columns(2)
+
+    with col1:
+        if 'value_tier' in data.columns:
+            tier_counts = data['value_tier'].value_counts().reset_index()
+            tier_counts.columns = ['Tier', 'Count']
+            fig_pie = px.pie(
+                tier_counts, values='Count', names='Tier',
+                color_discrete_sequence=['#e53935', '#FF9800', '#4CAF50'],
+                hole=0.4
+            )
+            fig_pie.update_layout(title='Customer Value Tiers', height=350)
+            st.plotly_chart(fig_pie, width='stretch')
+
+    with col2:
+        if 'churn_risk' in data.columns:
+            risk_counts = data['churn_risk'].value_counts().reset_index()
+            risk_counts.columns = ['Risk Level', 'Count']
+            fig_risk_pie = px.pie(
+                risk_counts, values='Count', names='Risk Level',
+                color_discrete_sequence=['#4CAF50', '#FF9800', '#e53935'],
+                hole=0.4
+            )
+            fig_risk_pie.update_layout(title='Churn Risk Levels', height=350)
+            st.plotly_chart(fig_risk_pie, width='stretch')
+
+    st.divider()
+
+    # --- Row 5: Correlation Heatmap ---
+    st.markdown("### Feature Correlations")
+    corr_cols = [c for c in ['recency', 'frequency', 'monetary_value', 'T', 'predicted_clv', 'churn_probability', 'prob_alive'] if c in data.columns]
+    if len(corr_cols) > 2:
+        corr_matrix = data[corr_cols].corr().round(2)
+        fig_corr = px.imshow(
+            corr_matrix, text_auto=True,
+            color_continuous_scale='RdBu_r',
+            aspect='auto'
+        )
+        fig_corr.update_layout(height=450)
+        st.plotly_chart(fig_corr, width='stretch')
+
+    # --- Row 6: Recency vs Monetary scatter ---
+    st.markdown("### Recency vs Monetary Value")
+    if all(c in data.columns for c in ['recency', 'monetary_value', 'churn_risk']):
+        scatter_data = data.sample(min(1000, len(data)), random_state=42)
+        fig_scatter = px.scatter(
+            scatter_data, x='recency', y='monetary_value',
+            color='churn_risk',
+            color_discrete_map={'Low': '#4CAF50', 'Medium': '#FF9800', 'High': '#e53935'},
+            opacity=0.6,
+            labels={'recency': 'Recency (days)', 'monetary_value': 'Monetary Value ($)'}
+        )
+        fig_scatter.update_layout(height=450)
+        st.plotly_chart(fig_scatter, width='stretch')
 # ═══════════════════════════════════════
 # TAB 2: Customer Lookup
 # ═══════════════════════════════════════
-with tab2:
+with tab3:
     st.subheader("Individual Customer Profile")
 
     customer_ids = data.index.tolist()
@@ -171,7 +306,7 @@ with tab2:
 # ═══════════════════════════════════════
 # TAB 3: What-If Simulator
 # ═══════════════════════════════════════
-with tab3:
+with tab4:
     st.subheader("Retention Strategy Simulator")
     st.markdown("Simulate how a discount changes a customer's expected future behavior.")
 
