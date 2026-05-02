@@ -1,0 +1,10 @@
+streamlit==1.36.0
+pandas
+numpy
+matplotlib
+seaborn
+xgboost
+lifetimes
+plotly
+scikit-learn
+dill
