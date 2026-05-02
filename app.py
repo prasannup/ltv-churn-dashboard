@@ -124,7 +124,7 @@ with tab1:
         aspect="auto"
     )
     fig_heat.update_layout(height=400, font=dict(size=14))
-    st.plotly_chart(fig_heat, use_container_width=True)
+    st.plotly_chart(fig_heat, width='stretch')
 
     danger = data[(data['value_tier'] == 'High') & (data['churn_risk'] == 'High')]
     st.error(f"⚠️ **{len(danger)} high-value customers at high churn risk** — ${danger['predicted_clv'].sum():,.0f} in projected revenue at stake")
@@ -134,7 +134,7 @@ with tab1:
         available_cols = [c for c in display_cols if c in danger.columns]
         st.dataframe(
             danger[available_cols].sort_values('predicted_clv', ascending=False).head(20),
-            use_container_width=True
+            width='stretch'
         )
 
 # ═══════════════════════════════════════
@@ -197,11 +197,17 @@ with tab3:
         )
         boosted_alive = min(base_alive + retention_boost, 0.99)
 
-        base_revenue = base_purchases * cust_sim['monetary_value']
-        discount_cost = boosted_purchases * cust_sim['monetary_value'] * (discount / 100)
-        boosted_revenue = (boosted_purchases * cust_sim['monetary_value']) - discount_cost
+        base_revenue = float(base_purchases * cust_sim['monetary_value'])
+        discount_cost = float(boosted_purchases * cust_sim['monetary_value'] * (discount / 100))
+        boosted_revenue = float(boosted_purchases * cust_sim['monetary_value']) - discount_cost
 
         net_gain = boosted_revenue - base_revenue
+
+        
+        base_purchases = float(base_purchases)
+        boosted_purchases = float(boosted_purchases)
+        base_alive = float(base_alive)
+        boosted_alive = float(boosted_alive)
 
     with col_right:
         metrics = ['Expected Purchases (12mo)', 'P(Alive)', 'Expected Revenue ($)']
@@ -218,7 +224,7 @@ with tab3:
             marker_color='#66BB6A', text=[f"{v:.2f}" for v in boosted_vals], textposition='outside'
         ))
         fig_compare.update_layout(barmode='group', height=400, title="Impact Simulation")
-        st.plotly_chart(fig_compare, use_container_width=True)
+        st.plotly_chart(fig_compare, width='stretch')
 
     st.divider()
     roi_col1, roi_col2, roi_col3 = st.columns(3)
