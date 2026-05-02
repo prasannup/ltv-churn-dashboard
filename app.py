@@ -187,14 +187,14 @@ with tab3:
         boost_factor = 1 + (discount / 5) * 0.08
         retention_boost = min((discount / 5) * 0.03, 0.25)
 
-        base_purchases = bgf.conditional_expected_number_of_purchases_up_to_time(
+        base_purchases = float(np.atleast_1d(bgf.conditional_expected_number_of_purchases_up_to_time(
             365, cust_sim['frequency'], cust_sim['recency'], cust_sim['T']
-        )
+        )).flatten()[0])
         boosted_purchases = base_purchases * boost_factor
 
-        base_alive = bgf.conditional_probability_alive(
+        base_alive = float(np.atleast_1d(bgf.conditional_probability_alive(
             cust_sim['frequency'], cust_sim['recency'], cust_sim['T']
-        )
+        )).flatten()[0])
         boosted_alive = min(base_alive + retention_boost, 0.99)
 
         base_revenue = float(base_purchases * cust_sim['monetary_value'])
